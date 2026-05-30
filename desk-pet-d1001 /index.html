@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280,height=800,initial-scale=1.0,user-scalable=no">
+<title>Desk Pet Assistant</title>
+<style>
+:root{--bg:#0f0f1a;--pet-body:#2d2d44;--pet-accent:#7c3aed;--pet-glow:#a78bfa;--bubble:#1e1e36;--text:#e2e8f0;--dim:#94a3b8;--ok:#10b981;--err:#ef4444}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;width:100vw;overflow:hidden;position:relative}
+
+/* ===== Pet Container (draggable) ===== */
+#pet{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);z-index:10;cursor:grab;user-select:none;transition:filter .3s}
+#pet:active{cursor:grabbing}
+#pet svg{width:180px;height:200px;filter:drop-shadow(0 0 20px rgba(124,58,237,.3))}
+#pet.idle svg{animation:breathe 3s ease-in-out infinite}
+#pet.happy svg{animation:bounce .5s ease}
+#pet.thinking svg{animation:wobble 1s ease-in-out infinite}
+@keyframes breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+@keyframes wobble{0%,100%{transform:rotate(0)}25%{transform:rotate(-3deg)}75%{transform:rotate(3deg)}}
+
+/* ===== Chat Bubble ===== */
+#bubble{position:absolute;bottom:250px;left:50%;transform:translateX(-50%);width:420px;max-height:320px;background:var(--bubble);border-radius:20px;border:1px solid #33335a;padding:16px;z-index:9;opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;transform:translateX(-50%) translateY(10px);display:flex;flex-direction:column}
+#bubble.show{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+#bubble::after{content:'';position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-top:12px solid var(--bubble)}
+#chatLog{flex:1;overflow-y:auto;min-height:60px;max-height:200px;margin-bottom:10px}
+#chatLog p{margin-bottom:6px;font-size:.88rem;line-height:1.4}
+#chatLog .u{color:var(--pet-glow)}
+#chatLog .a{color:var(--text)}
+#inputRow{display:flex;gap:8px}
+#textInput{flex:1;padding:10px 14px;background:var(--bg);border:1px solid #33335a;border-radius:12px;color:var(--text);font-size:.9rem;outline:none}
+#textInput:focus{border-color:var(--pet-accent)}
+#sendBtn{padding:10px 18px;background:var(--pet-accent);color:#fff;border:none;border-radius:12px;font-weight:600;cursor:pointer;font-size:.9rem}
+#sendBtn:hover{background:#6d28d9}
+#micBtn{padding:10px 16px;background:transparent;border:1px solid #33335a;border-radius:12px;color:var(--dim);cursor:pointer;font-size:1.1rem}
+#micBtn.recording{background:var(--err);border-color:var(--err);color:#fff;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}50%{box-shadow:0 0 0 10px rgba(239,68,68,0)}}
+
+/* ===== Status Bar ===== */
+#statusBar{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:rgba(15,15,26,.8);backdrop-filter:blur(8px);z-index:20;font-size:.8rem;color:var(--dim)}
+#statusBar .dots{display:flex;gap:6px;align-items:center}
+#statusBar .dot{width:8px;height:8px;border-radius:50%;background:var(--err)}
+#statusBar .dot.on{background:var(--ok);box-shadow:0 0 6px var(--ok)}
+
+/* ===== Settings Toggle ===== */
+#settingsToggle{position:fixed;top:8px;right:16px;z-index:21;background:none;border:none;color:var(--dim);font-size:1.2rem;cursor:pointer}
+#settingsToggle:hover{color:var(--text)}
+
+/* ===== Settings Panel ===== */
+#settings{position:fixed;top:0;right:0;width:340px;height:100%;background:var(--bubble);border-left:1px solid #33335a;padding:24px;z-index:30;transform:translateX(100%);transition:transform .3s;overflow-y:auto}
+#settings.open{transform:translateX(0)}
+#settings h2{font-size:1.1rem;margin-bottom:16px}
+#settings label{display:block;font-size:.82rem;color:var(--dim);margin-bottom:4px;margin-top:12px}
+#settings input,#settings select{width:100%;padding:8px 10px;background:var(--bg);border:1px solid #33335a;border-radius:8px;color:var(--text);font-size:.88rem}
+#settings input:focus,#settings select:focus{outline:none;border-color:var(--pet-accent)}
+#saveBtn{width:100%;padding:10px;background:var(--pet-accent);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;margin-top:16px}
+#closeSettings{position:absolute;top:12px;right:12px;background:none;border:none;color:var(--dim);font-size:1.3rem;cursor:pointer}
+
+/* ===== Device Panel (slide from left) ===== */
+#devicePanel{position:fixed;top:0;left:0;width:300px;height:100%;background:var(--bubble);border-right:1px solid #33335a;padding:24px;z-index:30;transform:translateX(-100%);transition:transform .3s;overflow-y:auto}
+#devicePanel.open{transform:translateX(0)}
+#devicePanel h2{font-size:1.1rem;margin-bottom:12px}
+#deviceToggle{position:fixed;top:8px;left:16px;z-index:21;background:none;border:none;color:var(--dim);font-size:1.2rem;cursor:pointer}
+.dev-card{background:var(--bg);border-radius:10px;padding:10px;margin-bottom:8px;border:1px solid #33335a}
+.dev-card .dh{display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:6px}
+.dev-card .dn{font-weight:600}
+.dev-card .ds{color:var(--ok)}
+.sr{display:flex;justify-content:space-between;font-size:.78rem;padding:3px 0;border-bottom:1px solid #33335a}
+.sr:last-child{border:none}
+.sl{color:var(--dim)}
+.sv{color:var(--pet-glow);font-weight:600}
+.dc{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.db{padding:6px 10px;border:1px solid #33335a;border-radius:6px;background:var(--bg);color:var(--text);font-size:.75rem;cursor:pointer}
+.db:hover{border-color:var(--pet-accent)}
+
+/* ===== Indicator ===== */
+#indicator{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);font-size:.78rem;color:var(--dim);z-index:5;text-align:center}
+</style>
+</head>
+<body>
+
+<!-- Status Bar -->
+<div id="statusBar">
+  <div class="dots">
+    <div class="dot" id="wsDot"></div><span id="wsStatus">Disconnected</span>
+    <div class="dot" id="aiDot" style="margin-left:8px"></div><span id="aiStatus">AI Offline</span>
+  </div>
+  <span id="deviceCount">📡 0</span>
+</div>
+<button id="deviceToggle" onclick="toggleDevices()">📡</button>
+<button id="settingsToggle" onclick="toggleSettings()">⚙️</button>
+
+<!-- Pet -->
+<div id="pet" class="idle">
+  <svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="glow" cx="50%" cy="40%" r="50%"><stop offset="0%" stop-color="#7c3aed" stop-opacity=".25"/><stop offset="100%" stop-color="#0f0f1a" stop-opacity="0"/></radialGradient>
+      <filter id="gl"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    <!-- Shadow -->
+    <ellipse cx="100" cy="210" rx="50" ry="6" fill="#000" opacity=".3"/>
+    <!-- Body -->
+    <ellipse cx="100" cy="155" rx="45" ry="50" fill="var(--pet-body)" stroke="var(--pet-accent)" stroke-width="1.5"/>
+    <!-- Head -->
+    <ellipse cx="100" cy="85" rx="42" ry="48" fill="var(--pet-body)" stroke="var(--pet-accent)" stroke-width="1.5"/>
+    <!-- Ears -->
+    <path d="M65 55 L55 25 L80 45Z" fill="var(--pet-body)" stroke="var(--pet-accent)" stroke-width="1.5"/>
+    <path d="M135 55 L145 25 L120 45Z" fill="var(--pet-body)" stroke="var(--pet-accent)" stroke-width="1.5"/>
+    <path d="M67 50 L60 32 L78 46Z" fill="var(--pet-accent)" opacity=".3"/>
+    <path d="M133 50 L140 32 L122 46Z" fill="var(--pet-accent)" opacity=".3"/>
+    <!-- Eyes -->
+    <ellipse cx="84" cy="80" rx="9" ry="11" fill="#0f0f1a"/>
+    <ellipse cx="116" cy="80" rx="9" ry="11" fill="#0f0f1a"/>
+    <circle id="pL" cx="84" cy="80" r="5" fill="var(--pet-glow)" filter="url(#gl)"/>
+    <circle id="pR" cx="116" cy="80" r="5" fill="var(--pet-glow)" filter="url(#gl)"/>
+    <!-- Eyelids -->
+    <rect id="eL" x="73" y="68" width="22" height="0" fill="var(--pet-body)" rx="2"/>
+    <rect id="eR" x="105" y="68" width="22" height="0" fill="var(--pet-body)" rx="2"/>
+    <!-- Mouth -->
+    <path id="mouth" d="M88 108 Q100 118 112 108" stroke="var(--pet-glow)" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- Cheeks -->
+    <ellipse id="cL" cx="70" cy="98" rx="7" ry="4" fill="var(--pet-accent)" opacity="0"/>
+    <ellipse id="cR" cx="130" cy="98" rx="7" ry="4" fill="var(--pet-accent)" opacity="0"/>
+    <!-- Arms -->
+    <path id="armL" d="M58 145 Q45 160 55 170" stroke="var(--pet-accent)" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path id="armR" d="M142 145 Q155 160 145 170" stroke="var(--pet-accent)" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <!-- Feet -->
+    <ellipse cx="80" cy="200" rx="14" ry="6" fill="var(--pet-body)" stroke="var(--pet-accent)" stroke-width="1"/>
+    <ellipse cx="120" cy="200" rx="14" ry="6" fill="var(--pet-body)" stroke="var(--pet-accent)" stroke-width="1"/>
+    <!-- Tail -->
+    <path id="tail" d="M145 170 Q165 155 160 140" stroke="var(--pet-accent)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <!-- Antenna -->
+    <line x1="100" y1="37" x2="100" y2="22" stroke="var(--pet-accent)" stroke-width="2" stroke-linecap="round"/>
+    <circle id="antTip" cx="100" cy="20" r="4" fill="var(--pet-glow)" filter="url(#gl)"/>
+  </svg>
+</div>
+
+<!-- Chat Bubble -->
+<div id="bubble">
+  <div id="chatLog"><p class="a">Hi! I'm your desk pet 🐾 Tap me or the mic to chat!</p></div>
+  <div id="inputRow">
+    <button id="micBtn" onclick="toggleMic()">🎤</button>
+    <input id="textInput" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendText()">
+    <button id="sendBtn" onclick="sendText()">Send</button>
+  </div>
+</div>
+
+<!-- Indicator -->
+<div id="indicator"></div>
+
+<!-- Device Panel -->
+<div id="devicePanel">
+  <button id="closeSettings" onclick="toggleDevices()" style="position:absolute;top:12px;right:12px">✕</button>
+  <h2>📡 XIAO Devices</h2>
+  <div id="devList"><p style="color:var(--dim);font-size:.85rem">No devices connected</p></div>
+</div>
+
+<!-- Settings Panel -->
+<div id="settings">
+  <button id="closeSettings" onclick="toggleSettings()">✕</button>
+  <h2>⚙️ Settings</h2>
+  <label>Backend URL</label><input id="sBackend" value="http://localhost:8080">
+  <label>Hermes Agent URL</label><input id="sHermes" value="http://localhost:8000">
+  <label>OpenAI API Key</label><input id="sKey" type="password" placeholder="sk-...">
+  <label>TTS Provider</label><select id="sTTS"><option value="elevenlabs">ElevenLabs</option><option value="polly">Amazon Polly</option><option value="browser">Browser</option></select>
+  <label>TTS API Key</label><input id="sTTSKey" type="password">
+  <label>TTS Voice ID</label><input id="sTTSVoice" placeholder="21m00Tcm4TlvDq8ikWAM">
+  <label>STT Provider</label><select id="sSTT"><option value="browser">Browser</option><option value="whisper">Whisper</option></select>
+  <button id="saveBtn" onclick="saveSettings()">Save</button>
+</div>
+
+<script>
+// ===== State =====
+let S={backend:'http://localhost:8080',hermes:'http://localhost:8000',key:'',tts:'elevenlabs',ttsKey:'',ttsVoice:'',stt:'browser'};
+let ws=null,recog=null,isRec=false,isSpeak=false,history=[],devices={},sensors={};
+let bubbleOpen=false;
+
+// ===== Load Settings =====
+(function(){const s=localStorage.getItem('petS');if(s){S={...S,...JSON.parse(s)};document.getElementById('sBackend').value=S.backend;document.getElementById('sHermes').value=S.hermes;document.getElementById('sKey').value=S.key;document.getElementById('sTTS').value=S.tts;document.getElementById('sTTSKey').value=S.ttsKey;document.getElementById('sTTSVoice').value=S.ttsVoice;document.getElementById('sSTT').value=S.stt}})();
+function saveSettings(){S.backend=document.getElementById('sBackend').value;S.hermes=document.getElementById('sHermes').value;S.key=document.getElementById('sKey').value;S.tts=document.getElementById('sTTS').value;S.ttsKey=document.getElementById('sTTSKey').value;S.ttsVoice=document.getElementById('sTTSVoice').value;S.stt=document.getElementById('sSTT').value;localStorage.setItem('petS',JSON.stringify(S));toggleSettings();addMsg('a','Settings saved!');connectWS()}
+function toggleSettings(){document.getElementById('settings').classList.toggle('open')}
+function toggleDevices(){document.getElementById('devicePanel').classList.toggle('open')}
+
+// ===== Drag Pet =====
+(function(){const p=document.getElementById('pet');let dx,dy,drag=false;p.onmousedown=p.ontouchstart=e=>{drag=true;const t=e.touches?e.touches[0]:e;dx=t.clientX-p.getBoundingClientRect().left;dy=t.clientY-p.getBoundingClientRect().top;p.style.transition='none'};window.onmousemove=window.ontouchmove=e=>{if(!drag)return;const t=e.touches?e.touches[0]:e;p.style.left=(t.clientX-dx)+'px';p.style.top=(t.clientY-dy)+'px';p.style.bottom='auto';p.style.transform='none'};window.onmouseup=window.ontouchend=()=>{drag=false;p.style.transition=''}})();
+
+// ===== Pet Expressions =====
+const P={pL:document.getElementById('pL'),pR:document.getElementById('pR'),eL:document.getElementById('eL'),eR:document.getElementById('eR'),m:document.getElementById('mouth'),cL:document.getElementById('cL'),cR:document.getElementById('cR'),tail:document.getElementById('tail'),ant:document.getElementById('antTip'),armL:document.getElementById('armL'),armR:document.getElementById('armR'),pet:document.getElementById('pet')};
+const exprs={idle:{m:'M88 108 Q100 118 112 108',c:0,aL:'M58 145 Q45 160 55 170',aR:'M142 145 Q155 160 145 170',cls:'idle'},listening:{m:'M88 108 Q100 115 112 108',c:.3,aL:'M58 145 Q40 155 50 165',aR:'M142 145 Q160 155 150 165',cls:'idle'},thinking:{m:'M92 112 Q100 114 108 112',c:0,aL:'M58 145 Q48 150 58 155',aR:'M142 145 Q152 150 142 155',cls:'thinking'},speaking:{m:'M85 105 Q100 125 115 105',c:.2,aL:'M58 145 Q40 155 50 165',aR:'M142 145 Q160 155 150 165',cls:'idle'},happy:{m:'M85 105 Q100 128 115 105',c:.4,aL:'M58 145 Q40 150 48 160',aR:'M142 145 Q160 150 152 160',cls:'happy'},surprised:{m:'M93 108 A7 7 0 1 0 107 108 A7 7 0 1 0 93 108',c:.2,aL:'M58 145 Q45 140 55 135',aR:'M142 145 Q155 140 145 135',cls:'idle'}};
+function setExpr(e){const x=exprs[e]||exprs.idle;P.m.setAttribute('d',x.m);P.cL.setAttribute('opacity',x.c);P.cR.setAttribute('opacity',x.c);P.armL.setAttribute('d',x.aL);P.armR.setAttribute('d',x.aR);P.pet.className=x.cls}
+
+// Blink
+setInterval(()=>{if(P.pet.className==='happy')return;P.eL.setAttribute('height','22');P.eR.setAttribute('height','22');setTimeout(()=>{P.eL.setAttribute('height','0');P.eR.setAttribute('height','0')},150)},3000+Math.random()*2000);
+
+// Antenna pulse
+!function ap(){let p=0;!function(){p+=.05;P.ant.setAttribute('opacity',.5+.5*Math.sin(p));requestAnimationFrame(arguments.callee)}()}();
+
+// Tail wag
+!function tw(){let t=0;!function(){t+=.08;const w=Math.sin(t)*8;P.tail.setAttribute('d',`M145 170 Q${165+w} 155 ${160+w} 140`);requestAnimationFrame(arguments.callee)}()}();
+
+// ===== Bubble =====
+function showBubble(){bubbleOpen=true;document.getElementById('bubble').classList.add('show')}
+function hideBubble(){bubbleOpen=false;document.getElementById('bubble').classList.remove('show')}
+P.pet.onclick=()=>{showBubble();document.getElementById('textInput').focus()};
+
+// ===== WebSocket =====
+function connectWS(){if(ws)ws.close();const u=S.backend.replace('http','ws')+'/ws/ui';ws=new WebSocket(u);ws.onopen=()=>{document.getElementById('wsDot').classList.add('on');document.getElementById('wsStatus').textContent='Connected'};ws.onclose=()=>{document.getElementById('wsDot').classList.remove('on');document.getElementById('wsStatus').textContent='Disconnected';setTimeout(connectWS,3000)};ws.onmessage=e=>{const d=JSON.parse(e.data);if(d.type==='device_list'){devices=d.devices||{};sensors=d.sensors||{};renderDev()}else if(d.type==='device_connected'){devices[d.device_id]=d.info;renderDev()}else if(d.type==='device_disconnected'){delete devices[d.device_id];delete sensors[d.device_id];renderDev()}else if(d.type==='sensor_update'){sensors[d.device_id]=d.data;renderDev()}else if(d.type==='button_event'&&d.pressed){addMsg('a','📡 XIAO button pressed!');setExpr('surprised');setTimeout(()=>setExpr('idle'),2000)}}}
+function renderDev(){const ids=Object.keys(devices);document.getElementById('deviceCount').textContent='📡 '+ids.length;const el=document.getElementById('devList');if(!ids.length){el.innerHTML='<p style="color:var(--dim);font-size:.85rem">No devices</p>';return}el.innerHTML=ids.map(id=>{const d=devices[id],s=sensors[id]||{};return`<div class="dev-card"><div class="dh"><span class="dn">🔧 ${id}</span><span class="ds">●</span></div><div class="sr"><span class="sl">RSSI</span><span class="sv">${d.rssi||'—'} dBm</span></div><div class="sr"><span class="sl">Sensor</span><span class="sv">${s.sensor_value||'—'}</span></div><div class="sr"><span class="sl">LED</span><span class="sv">${s.led_state?'ON':'OFF'}</span></div><div class="dc"><button class="db" onclick="sendCmd('${id}','led_on')">💡ON</button><button class="db" onclick="sendCmd('${id}','led_off')">💡OFF</button><button class="db" onclick="sendCmd('${id}','relay_on')">🔌ON</button><button class="db" onclick="sendCmd('${id}','relay_off')">🔌OFF</button></div><div style="margin-top:6px"><label style="font-size:.72rem;color:var(--dim)">Servo</label><input type="range" min="0" max="180" value="90" style="width:100%;accent-color:var(--pet-accent)" oninput="sendCmd('${id}','servo',{angle:+this.value})"></div></div>`}).join('')}
+function sendCmd(id,cmd,params={}){if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'send_command',device_id:id,command:cmd,...params}))}
+
+// ===== STT =====
+(function(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return;recog=new SR();recog.continuous=false;recog.interimResults=true;recog.lang='en-US';recog.onresult=e=>{let t='';for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;document.getElementById('indicator').textContent=t;if(e.results[e.results.length-1].isFinal)handleInput(t)};recog.onerror=()=>stopMic();recog.onend=()=>{if(isRec)stopMic()}})();
+function toggleMic(){isRec?stopMic():startMic()}
+function startMic(){if(!recog){addMsg('a','STT not supported');return}isRec=true;document.getElementById('micBtn').classList.add('recording');document.getElementById('indicator').textContent='Listening...';setExpr('listening');recog.start()}
+function stopMic(){isRec=false;document.getElementById('micBtn').classList.remove('recording');document.getElementById('indicator').textContent='';if(recog)recog.stop()}
+
+// ===== TTS =====
+async function speak(t){if(isSpeak)return;isSpeak=true;setExpr('speaking');document.getElementById('indicator').textContent='Speaking...';try{if(S.tts==='elevenlabs'&&S.ttsKey)await ttsEL(t);else await ttsBrowser(t)}catch(e){await ttsBrowser(t)}setExpr('happy');setTimeout(()=>setExpr('idle'),2000);isSpeak=false;document.getElementById('indicator').textContent=''}
+async function ttsEL(t){const r=await fetch(`${S.backend}/api/tts`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t,provider:'elevenlabs',voice_id:S.ttsVoice,api_key:S.ttsKey})});const b=await r.blob();return playBlob(b)}
+function ttsBrowser(t){return new Promise(r=>{const u=new SpeechSynthesisUtterance(t);u.onend=r;u.onerror=r;speechSynthesis.speak(u)})}
+function playBlob(b){return new Promise(r=>{const u=URL.createObjectURL(b),a=new Audio(u);a.onend=()=>{URL.revokeObjectURL(u);r()};a.onerror=()=>{URL.revokeObjectURL(u);r()};a.play()})}
+
+// ===== Chat =====
+async function sendText(){const v=document.getElementById('textInput').value.trim();if(!v)return;document.getElementById('textInput').value='';handleInput(v)}
+async function handleInput(t){addMsg('u',t);history.push({role:'user',content:t});setExpr('thinking');document.getElementById('indicator').textContent='Thinking...';try{const r=await fetch(`${S.backend}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,history})});const d=await r.json();const reply=d.response||d.message||d.text||'No response';history.push({role:'assistant',content:reply});addMsg('a',reply);await speak(reply)}catch(e){addMsg('a','Connection error');setExpr('idle')}document.getElementById('indicator').textContent=''}
+function addMsg(role,text){const c=document.getElementById('chatLog'),p=document.createElement('p');p.className=role==='u'?'u':'a';p.textContent=(role==='u'?'You: ':'Pet: ')+text;c.appendChild(p);c.scrollTop=c.scrollHeight;if(!bubbleOpen)showBubble()}
+
+// ===== Init =====
+connectWS();
+// Check AI status
+setInterval(async()=>{try{const r=await fetch(`${S.backend}/api/health`);if(r.ok){document.getElementById('aiDot').classList.add('on');document.getElementById('aiStatus').textContent='AI Online'}}catch{document.getElementById('aiDot').classList.remove('on');document.getElementById('aiStatus').textContent='AI Offline'}},10000);
+</script>
+</body>
+</html>
