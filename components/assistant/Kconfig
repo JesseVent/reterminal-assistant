@@ -1,0 +1,35 @@
+menu "Voice Assistant"
+
+    config ASSISTANT_WIFI_SSID
+        string "WiFi SSID"
+        default "MyNetwork"
+        help
+            SSID of the Wi-Fi network the D1001 will connect to.
+
+    config ASSISTANT_WIFI_PASSWORD
+        string "WiFi Password"
+        default ""
+        help
+            Password for the Wi-Fi network.
+
+    config ASSISTANT_WS_URI
+        string "WebSocket URI"
+        default "ws://192.168.1.100:8080/assistant"
+        help
+            URI of the NUC WebSocket server.
+
+    config ASSISTANT_AUDIO_CHUNK_SIZE
+        int "Audio chunk size (bytes)"
+        default 4096
+        help
+            Size of each audio chunk sent over WebSocket.
+            4096 bytes = 128ms of 16kHz 16-bit mono PCM.
+
+    config ASSISTANT_RING_BUF_SIZE
+        int "Playback ring buffer size (bytes)"
+        default 65536
+        help
+            Size of the ring buffer for audio playback.
+            Larger values smooth out network jitter. Allocated from PSRAM.
+
+endmenu
