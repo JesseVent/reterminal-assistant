@@ -35,6 +35,7 @@ Exit serial monitor with `Ctrl+]`.
 - **`examples/`** — Full applications (factory firmware demo)
 - **`driver_examples/`** — Minimal peripheral-specific examples (I2S audio codecs)
 - **`firmware/`** — Pre-built factory firmware `.bin` files
+- **`nuc_server/`** — Python server for voice assistant (Phase 1 loopback server)
 
 ### Component Dependency Graph
 
@@ -72,6 +73,58 @@ A full demo app using esp-brookesia (phone-style UI). Written in C++ with LVGL. 
 Partition table (`partitions.csv`): factory app (9MB) + SPIFFS storage (4MB).
 
 The `main/` entry point (`main.cpp`) initializes power, NVS, SPIFFS, SD card, audio codec, display with LVGL, then launches the esp-brookesia phone UI with all app widgets.
+
+### Voice Assistant Component (`components/assistant/`)
+
+A Phase 1 voice assistant component that streams mic audio to a NUC server over WebSocket and plays back server responses. Built as a reusable ESP-IDF component.
+
+**Files:**
+- `include/assistant.h` — Public API (state machine, lifecycle, UI helpers)
+- `src/assistant.c` — State machine coordinator
+- `src/assistant_wifi.c` — Wi-Fi STA connection with auto-reconnect
+- `src/assistant_ws.c` — WebSocket client (uses `esp_websocket_client` managed component)
+- `src/assistant_audio.c` — I2S record/play tasks with PSRAM ring buffers
+- `src/assistant_ui.c` — LVGL status screen (idle → listening → speaking states)
+
+**Audio format:** 16kHz, 16-bit, mono PCM. Chunk size: 4096 bytes (~128ms per chunk). Data rate: ~32 KB/s.
+
+**State machine:**
+```
+DISCONNECTED → CONNECTING → CONNECTED → LISTENING (mic streaming)
+                                    ↘ SPEAKING (server audio playing back)
+```
+
+**Dependencies:** `esp32_p4_re_terminal_d1001`, `bsp_extra`, `lvgl/lvgl`, `esp_websocket_client`
+
+### Voice Assistant Example (`examples/voice_assistant/`)
+
+A standalone ESP-IDF application built on the `assistant` component. Connects to Wi-Fi and a NUC WebSocket server, streams mic audio, and plays back server responses.
+
+**Key files:**
+- `main/main.c` — Entry point: initializes BSP, display, codec, and starts assistant
+- `sdkconfig.defaults` — Pre-set PSRAM, display, and Wi-Fi configs
+- `partitions.csv` — Partition layout for the app
+
+**Config (via `idf.py menuconfig` → Voice Assistant):**
+- `CONFIG_ASSISTANT_WIFI_SSID` — WiFi SSID
+- `CONFIG_ASSISTANT_WIFI_PASSWORD` — WiFi password
+- `CONFIG_ASSISTANT_WS_URI` — WebSocket server URI (e.g., `ws://192.168.1.100:8080/assistant`)
+
+### NUC Server (`nuc_server/`)
+
+Python FastAPI WebSocket server for Phase 1 loopback testing. Accepts audio from D1001 and immediately echoes it back, validating the full audio pipeline before adding STT/LLM/TTS.
+
+**Protocol:**
+- Binary frames: raw PCM audio (16kHz, 16-bit, mono) — looped back
+- Text frames: JSON metadata (reserved for future use)
+
+**Run:** `cd nuc_server && pip install websockets && python server.py`
+
+Listens on `ws://0.0.0.0:8080/assistant`.
+
+### Web App (`desk-pet-d1001 /`)
+
+A simple HTML web application (delivered as a single `index.html` + embedded JS/CSS), served locally for the desk pet interface.
 
 ## Configuration
 
