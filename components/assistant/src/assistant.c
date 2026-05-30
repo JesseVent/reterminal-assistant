@@ -8,6 +8,8 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "freertos/ringbuf.h"
+#include "lvgl.h"
 
 #include "assistant.h"
 #include "bsp_board_extra.h"
@@ -23,7 +25,7 @@ extern RingbufHandle_t assistant_audio_init(void);
 extern esp_err_t assistant_audio_start(void);
 extern esp_err_t assistant_audio_stop(void);
 extern void assistant_audio_set_listening(bool listening);
-extern lv_obj_t *assistant_ui_create(lv_display_t *disp);
+extern lv_obj_t *assistant_ui_create(lv_disp_t *disp);
 extern void assistant_ui_update_state(assistant_state_t state);
 extern void assistant_ui_update_audio_level(int level);
 

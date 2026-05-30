@@ -8,6 +8,7 @@
  */
 
 #include "esp_log.h"
+#include "esp_random.h"
 #include "lvgl.h"
 #include "assistant.h"
 
@@ -23,13 +24,19 @@ static lv_timer_t *s_wave_timer = NULL;
 static int s_audio_level = 0;
 static bool s_is_listening = false;
 
-/* Colors */
-static const lv_color_t COLOR_BG         = {.num = 0x000000};  /* Black */
-static const lv_color_t COLOR_DISCONNECTED = {.num = 0x666666}; /* Gray */
-static const lv_color_t COLOR_CONNECTING  = {.num = 0xFFAA00}; /* Amber */
-static const lv_color_t COLOR_CONNECTED   = {.num = 0x00CC66}; /* Green */
-static const lv_color_t COLOR_LISTENING   = {.num = 0x00AAFF}; /* Blue */
-static const lv_color_t COLOR_SPEAKING    = {.num = 0xFF6600}; /* Orange */
+/* Colors — initialized at runtime for LVGL 8 compatibility */
+static lv_color_t COLOR_BG, COLOR_DISCONNECTED, COLOR_CONNECTING;
+static lv_color_t COLOR_CONNECTED, COLOR_LISTENING, COLOR_SPEAKING;
+
+static void init_colors(void)
+{
+    COLOR_BG         = lv_color_hex(0x000000);
+    COLOR_DISCONNECTED = lv_color_hex(0x666666);
+    COLOR_CONNECTING  = lv_color_hex(0xFFAA00);
+    COLOR_CONNECTED   = lv_color_hex(0x00CC66);
+    COLOR_LISTENING   = lv_color_hex(0x00AAFF);
+    COLOR_SPEAKING    = lv_color_hex(0xFF6600);
+}
 
 static const char *state_to_text(assistant_state_t state)
 {
@@ -88,8 +95,10 @@ static void btn_talk_cb(lv_event_t *e)
     }
 }
 
-lv_obj_t *assistant_ui_create(lv_display_t *disp)
+lv_obj_t *assistant_ui_create(lv_disp_t *disp)
 {
+    init_colors();
+
     s_screen = lv_obj_create(lv_scr_act());
     lv_obj_set_size(s_screen, 800, 1280);
     lv_obj_center(s_screen);

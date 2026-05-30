@@ -116,7 +116,7 @@ esp_err_t assistant_stop_listening(void);
  * @param disp  LVGL display (from bsp_display_start_with_config)
  * @return      Created screen object
  */
-lv_obj_t *assistant_ui_create(lv_display_t *disp);
+lv_obj_t *assistant_ui_create(lv_disp_t *disp);
 
 /**
  * @brief Update UI to reflect current state.

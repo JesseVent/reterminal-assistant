@@ -50,7 +50,7 @@ void app_main(void)
             .sw_rotate = true,
         }
     };
-    lv_display_t *display = bsp_display_start_with_config(&cfg);
+    lv_disp_t *display = bsp_display_start_with_config(&cfg);
 
     /* Dim LEDs */
     bsp_rgb_led_duty_set(0, 0);

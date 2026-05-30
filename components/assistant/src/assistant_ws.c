@@ -17,12 +17,11 @@ static const char *TAG = "assistant_ws";
 
 static esp_websocket_client_handle_t s_ws_client = NULL;
 static RingbufHandle_t s_playback_rb = NULL;
-static bool s_is_connected = false;
+static volatile bool s_is_connected = false;
 
 /* Forward-declared: defined in assistant.c */
 extern void assistant_ws_on_connected(void);
 extern void assistant_ws_on_disconnected(void);
-extern void assistant_ws_on_state_changed(bool connected);
 
 static void websocket_event_handler(void *handler_args, esp_event_base_t base,
                                     int32_t event_id, void *event_data)
@@ -77,7 +76,7 @@ esp_err_t assistant_ws_init(RingbufHandle_t playback_rb)
         .network_timeout_ms = 10000,
         .buffer_size = 8192,
         .ping_interval_sec = 10,
-        .auto_reconnect = true,
+        .disable_auto_reconnect = false,
     };
 
     s_ws_client = esp_websocket_client_init(&ws_cfg);
@@ -108,12 +107,14 @@ esp_err_t assistant_ws_stop(void)
         return ESP_ERR_INVALID_STATE;
     }
     s_is_connected = false;
-    return esp_websocket_client_destroy(s_ws_client);
+    esp_err_t ret = esp_websocket_client_destroy(s_ws_client);
     s_ws_client = NULL;
+    return ret;
 }
 
 bool assistant_ws_is_connected(void)
 {
+    if (s_ws_client == NULL) return false;
     return s_is_connected && esp_websocket_client_is_connected(s_ws_client);
 }
 
@@ -122,9 +123,9 @@ esp_err_t assistant_ws_send_audio(const uint8_t *data, size_t len)
     if (!assistant_ws_is_connected()) {
         return ESP_ERR_INVALID_STATE;
     }
-    int sent = esp_websocket_client_send_bin(s_ws_client, data, len, pdMS_TO_TICKS(100));
+    int sent = esp_websocket_client_send_bin(s_ws_client, (const char *)data, (int)len, pdMS_TO_TICKS(100));
     if (sent < 0) {
-        ESP_LOGW(TAG, "Failed to send audio (%d bytes)", len);
+        ESP_LOGW(TAG, "Failed to send audio (%d bytes)", (int)len);
         return ESP_FAIL;
     }
     return ESP_OK;
@@ -135,7 +136,7 @@ esp_err_t assistant_ws_send_text(const char *json)
     if (!assistant_ws_is_connected()) {
         return ESP_ERR_INVALID_STATE;
     }
-    int sent = esp_websocket_client_send_text(s_ws_client, json, strlen(json), pdMS_TO_TICKS(100));
+    int sent = esp_websocket_client_send_text(s_ws_client, json, (int)strlen(json), pdMS_TO_TICKS(100));
     if (sent < 0) {
         ESP_LOGW(TAG, "Failed to send text");
         return ESP_FAIL;

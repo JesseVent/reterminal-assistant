@@ -16,6 +16,7 @@
 #include "esp_lcd_mipi_dsi.h"
 #include "esp_ldo_regulator.h"
 #include "esp_vfs_fat.h"
+#include "esp_timer.h"
 #include "sd_pwr_ctrl_by_on_chip_ldo.h"
 
 #include "esp_lcd_jd9365_8.h"

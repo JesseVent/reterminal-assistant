@@ -16,5 +16,5 @@ idf_component_register(
     INCLUDE_DIRS "include"
     PRIV_INCLUDE_DIRS "priv_include"
     REQUIRES driver
-    PRIV_REQUIRES esp_adc esp_lcd usb spiffs fatfs
+    PRIV_REQUIRES esp_adc esp_lcd usb spiffs fatfs esp_timer
 )
