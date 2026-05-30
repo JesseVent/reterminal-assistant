@@ -1,0 +1,19 @@
+# ESP-IDF
+build/
+sdkconfig
+sdkconfig.old
+*.pyc
+managed_components/
+**/managed_components/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Claude / Remember
+.remember/
+.claude/
